@@ -205,7 +205,6 @@
 
     input[type="date"] {
         color: var(--dark) !important;
-        text-align: left !important;
     }
 
     input[type="date"]::-webkit-datetime-edit,
@@ -215,7 +214,6 @@
     input[type="date"]::-webkit-datetime-edit-day-field,
     input[type="date"]::-webkit-datetime-edit-year-field {
     color: var(--dark);
-    text-align: left !important;
     }
 
     select.form-control option {
@@ -489,6 +487,13 @@
     }
   </style>
 </head>
+
+<script
+src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCJANnhvsvEqRaYHw5Z-KukD96SWqHkjqI&libraries=places&loading=async"
+async
+defer
+></script>
+
 <body>
 
 <div id="orcamento-widget">
@@ -606,7 +611,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
               <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2zm13 2.383-4.708 2.825L15 11.105zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741M1 11.105l4.708-2.897L1 5.383z"/>
             </svg>
-            Receber orçamento por e-mail
+            Receber por e-mail
           </button>
         </div>
       </div>
@@ -716,7 +721,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
               <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2zm13 2.383-4.708 2.825L15 11.105zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741M1 11.105l4.708-2.897L1 5.383z"/>
             </svg>
-            Receber orçamento por e-mail
+            Receber por e-mail
           </button>
         </div>
       </div>
@@ -775,391 +780,458 @@
               </div>
             </div>
           </div>
-          
-          <script>
-          // Definição de variáveis para armazenar os dados de orçamento
-          let dadosOrcamento = {
-            man: { total: 0, distancia: 0, detalhes: {} },
-            ins: { total: 0, distancia: 0, detalhes: {} }
-          };
-          
-          // Função para ajustar a data com dias úteis
-          function addDiasUteis(start, dias) {
-            const date = new Date(start);
-            let diasAdicionados = 0;
-            
-            while (diasAdicionados < dias) {
-              date.setDate(date.getDate() + 1);
-              const diaSemana = date.getDay();
-              // 0 = domingo, 6 = sábado
-              if (diaSemana !== 0 && diaSemana !== 6) {
-                diasAdicionados++;
-              }
+
+        <script>
+                // Definição de variáveis para armazenar os dados de orçamento
+        let dadosOrcamento = {
+        man: { total: 0, distancia: 0, detalhes: {} },
+        ins: { total: 0, distancia: 0, detalhes: {} }
+        };
+
+        // Constantes da aplicação
+        const VALOR_POR_KM = 5; // R$
+        const FATOR_URGENCIA = 1.2; // Multiplicador para prazos curtos
+        const LIMITE_DIAS_URGENCIA = 5; // Dias úteis
+
+        // Função para ajustar a data com dias úteis
+        function addDiasUteis(start, dias) {
+        const date = new Date(start);
+        let diasAdicionados = 0;
+        
+        while (diasAdicionados < dias) {
+            date.setDate(date.getDate() + 1);
+            const diaSemana = date.getDay();
+            // 0 = domingo, 6 = sábado
+            if (diaSemana !== 0 && diaSemana !== 6) {
+            diasAdicionados++;
             }
+        }
+        
+        return date.toISOString().split('T')[0];
+        }
+
+        // Função para formatar a data no formato DD/MM/YYYY
+        function formatarData(dataString) {
+        const data = new Date(dataString);
+        const dia = String(data.getDate()).padStart(2, '0');
+        const mes = String(data.getMonth() + 1).padStart(2, '0');
+        const ano = data.getFullYear();
+        
+        return `${dia}/${mes}/${ano}`;
+        }
+
+        // Função para validar endereço de e-mail
+        function validarEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+        }
+
+        // Função para validar campos antes de estimar
+        function validarCampos(prefix) {
+        let valido = true;
+        
+        // Validação do serviço
+        const servicoSelect = document.getElementById(`${prefix}-tipoServico`);
+        const servicoFeedback = document.getElementById(`${prefix}-tipoServico-feedback`);
+        
+        if (!servicoSelect.value) {
+            servicoFeedback.classList.add('error');
+            servicoSelect.classList.add('error');
+            valido = false;
+        } else {
+            servicoFeedback.textContent = '';
+            servicoSelect.classList.remove('error');
+        }
+        
+        // Validação do endereço
+        const endereco = document.getElementById(`${prefix}-endereco`);
+        const enderecoFeedback = document.getElementById(`${prefix}-endereco-feedback`);
+        
+        // Validação do prazo
+        const prazo = document.getElementById(`${prefix}-prazo`);
+        const prazoFeedback = document.getElementById(`${prefix}-prazo-feedback`);
+        
+        if (!prazo.value) {
+            prazoFeedback.classList.add('error');
+            prazo.classList.add('error');
+            valido = false;
+        } else {
+            prazoFeedback.textContent = '';
+            prazo.classList.remove('error');
+        }
+        
+        // Validações específicas para cada tipo
+        if (prefix === 'man') {
+            // Validação da área para manutenção
+            const area = document.getElementById('man-area');
+            const areaFeedback = document.getElementById('man-area-feedback');
             
-            return date.toISOString().split('T')[0];
-          }
-          
-          // Inicialização e configuração de eventos quando o DOM estiver carregado
-          document.addEventListener('DOMContentLoaded', () => {
-            // Inicializa datas com prazo padrão (3 dias úteis)
-            document.getElementById('man-prazo').value = addDiasUteis(new Date(), 3);
-            document.getElementById('ins-prazo').value = addDiasUteis(new Date(), 3);
-            
-            // Configuração das abas
-            const tabBtns = document.querySelectorAll('.tab-btn');
-            tabBtns.forEach(tab => {
-              tab.addEventListener('click', () => {
-                const tabId = tab.getAttribute('data-tab');
-                
-                // Remove classe ativa de todas as abas e adiciona na selecionada
-                tabBtns.forEach(btn => btn.classList.remove('active'));
-                tab.classList.add('active');
-                
-                // Esconde todos os painéis e mostra apenas o selecionado
-                document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
-                document.getElementById(tabId).classList.add('active');
-              });
-            });
-            
-            // Configura campos condicionais para tipo de serviço de manutenção
-            document.getElementById('man-tipoServico').addEventListener('change', e => {
-              const servicoSelecionado = e.target.value;
-              const precoServico = parseFloat(e.target.selectedOptions[0].dataset.preco) || 0;
-              
-              // Mostra campo de área apenas se for um serviço válido
-              const campoArea = document.getElementById('man-campoArea');
-              campoArea.style.display = precoServico > 0 ? 'block' : 'none';
-              
-              // Limpa feedback de erro caso exista
-              document.getElementById('man-area-feedback').innerHTML = '';
-              document.getElementById('man-area').classList.remove('error');
-            });
-            
-            // Configura campos condicionais para tipo de serviço de instalação
-            document.getElementById('ins-tipoServico').addEventListener('change', e => {
-              const servicoSelecionado = e.target.value;
-              
-              // Mostra campo de equipamento apenas se for instalação de infraestrutura
-              const campoEquip = document.getElementById('ins-campoEquip');
-              campoEquip.style.display = servicoSelecionado === 'infra' ? 'block' : 'none';
-              
-              // Limpa feedback de erro caso exista
-              document.getElementById('ins-equipamento-feedback').innerHTML = '';
-              document.getElementById('ins-equipamento').classList.remove('error');
-            });
-            
-            // Configura botões de orçamento
-            document.getElementById('btn-calcula-man').addEventListener('click', () => calculaOrcamento('man'));
-            document.getElementById('btn-calcula-ins').addEventListener('click', () => calculaOrcamento('ins'));
-            
-            // Configura botões de e-mail
-            document.getElementById('man-btnEmail').addEventListener('click', () => enviarPorEmail('man'));
-            document.getElementById('ins-btnEmail').addEventListener('click', () => enviarPorEmail('ins'));
-          });
-          
-          // Função principal para Estimar orçamento
-          function calculaOrcamento(prefix) {
-            // Oculta container de e-mail
-            document.getElementById(`${prefix}-email-container`).classList.remove('show');
-            
-            // Mostra spinner de carregamento
-            const spinner = document.getElementById(`${prefix}-spinner`);
-            spinner.style.display = 'inline-block';
-            
-            // Validação dos campos
-            if (!validarCampos(prefix)) {
-              spinner.style.display = 'none';
-              return;
-            }
-            
-            // Coleta dados do formulário
-            const servicoSelect = document.getElementById(`${prefix}-tipoServico`);
-            const precoBase = parseFloat(servicoSelect.selectedOptions[0].dataset.preco) || 0;
-            const textoServico = servicoSelect.selectedOptions[0].text;
-            const prazo = document.getElementById(`${prefix}-prazo`).value;
-            const condicaoSelect = document.getElementById(`${prefix}-condicao`);
-            const fatorCondicao = parseFloat(condicaoSelect.selectedOptions[0].dataset.fator) || 1;
-            const textoCondicao = condicaoSelect.selectedOptions[0].text;
-            const enderecoCliente = document.getElementById(`${prefix}-endereco`).value;
-            
-            // Variáveis específicas para cada tipo de orçamento
-            let valorBase = 0;
-            let detalhesAdicionais = {};
-            
-            if (prefix === 'man') {
-              // Manutenção - Estimar com base na área
-              const area = parseFloat(document.getElementById('man-area').value) || 0;
-              valorBase = precoBase * area;
-              
-              // Armazena detalhes para exibir no resultado
-              detalhesAdicionais = {
-                area: area,
-                textoArea: `${area} m²`
-              };
-              
+            if (servicoSelect.value && (!area.value || parseFloat(area.value) <= 0)) {
+            areaFeedback.classList.add('error');
+            area.classList.add('error');
+            valido = false;
             } else {
-              // Instalação - Estimar com base na quantidade
-              const quantidade = parseInt(document.getElementById('ins-quantidade').value, 10) || 0;
-              valorBase = precoBase * quantidade;
-              
-              // Verifica se precisa ajustar por tipo de equipamento
-              if (servicoSelect.value === 'infra') {
-                const equipSelect = document.getElementById('ins-equipamento');
-                const fatorEquip = parseFloat(equipSelect.selectedOptions[0].dataset.fator) || 1;
-                const textoEquip = equipSelect.selectedOptions[0].text;
-                
-                valorBase *= fatorEquip;
-                
-                detalhesAdicionais = {
-                  quantidade: quantidade,
-                  textoQuantidade: `${quantidade} unidades`,
-                  equipamento: textoEquip
-                };
-                
-                // Mostra container de equipamento no resultado
-                document.getElementById('ins-result-equip-container').style.display = 'flex';
-                document.getElementById('ins-result-equipamento').textContent = textoEquip;
-              } else {
-                // Quando não tem equipamento específico
-                detalhesAdicionais = {
-                  quantidade: quantidade,
-                  textoQuantidade: `${quantidade} unidades`
-                };
-                
-                // Esconde container de equipamento no resultado
-                document.getElementById('ins-result-equip-container').style.display = 'none';
-              }
+            areaFeedback.textContent = '';
+            area.classList.remove('error');
+            }
+        } else {
+            // Validação da quantidade para instalação
+            const quantidade = document.getElementById('ins-quantidade');
+            const quantidadeFeedback = document.getElementById('ins-quantidade-feedback');
+            
+            if (!quantidade.value || parseInt(quantidade.value) <= 0) {
+            quantidadeFeedback.classList.add('error');
+            quantidade.classList.add('error');
+            valido = false;
+            } else {
+            quantidadeFeedback.textContent = '';
+            quantidade.classList.remove('error');
             }
             
-            // Calculamos a distância usando Google Maps API se disponível
-            if (typeof google !== 'undefined' && google.maps) {
-              const enderecoEmpresa = 'Avenida Antônio Augusto de Lima, 303 - CEP: 03807-040';
-              const service = new google.maps.DistanceMatrixService();
-              
-              service.getDistanceMatrix({
-                origins: [enderecoCliente],
-                destinations: [enderecoEmpresa],
+            // Validação do equipamento se for instalação de infraestrutura
+            if (servicoSelect.value === 'infra') {
+            const equipamento = document.getElementById('ins-equipamento');
+            const equipamentoFeedback = document.getElementById('ins-equipamento-feedback');
+            
+            if (!equipamento.value) {
+                equipamentoFeedback.classList.add('error');
+                equipamento.classList.add('error');
+                valido = false;
+            } else {
+                equipamentoFeedback.textContent = '';
+                equipamento.classList.remove('error');
+            }
+            }
+        }
+        
+        return valido;
+        }
+
+        // Função para calcular distância usando Google Maps API
+            function calcularDistancia(enderecoOrigem, enderecoDestino) {
+            return new Promise((resolve, reject) => {
+                // Verifica se o endereço de origem está vazio ou é inválido
+                if (!enderecoOrigem || enderecoOrigem.trim() === '') {
+                console.log("Endereço vazio ou inválido. Usando distância padrão de 10km.");
+                resolve(10);
+                return;
+                }
+
+                // Verifica se a API do Google Maps está disponível
+                if (typeof google === 'undefined' || !google.maps) {
+                console.log("API Google Maps não disponível. Usando distância padrão de 10km.");
+                resolve(10);
+                return;
+                }
+
+                const service = new google.maps.DistanceMatrixService();
+                
+                service.getDistanceMatrix({
+                origins: [enderecoOrigem],
+                destinations: [enderecoDestino],
                 travelMode: 'DRIVING',
                 unitSystem: google.maps.UnitSystem.METRIC
-              }, (response, status) => {
-                if (status !== 'OK' || response.rows[0].elements[0].status !== 'OK') {
-                  // Se houver erro, fazemos uma estimativa simples
-                  finalizarCalculo(prefix, valorBase, fatorCondicao, prazo, 10, textoServico, detalhesAdicionais);
+                }, (response, status) => {
+                if (status !== 'OK' || !response || !response.rows[0] || !response.rows[0].elements[0] || 
+                    response.rows[0].elements[0].status !== 'OK') {
+                    // Se houver erro, usa distância padrão
+                    console.log(`Erro na API Google Maps (${status}). Usando distância padrão de 10km.`);
+                    resolve(10);
                 } else {
-                  // Distância em km
-                  const distancia = response.rows[0].elements[0].distance.value / 1000;
-                  finalizarCalculo(prefix, valorBase, fatorCondicao, prazo, distancia, textoServico, detalhesAdicionais);
+                    // Distância em km
+                    const distancia = response.rows[0].elements[0].distance.value / 1000;
+                    console.log(`Distância calculada com sucesso: ${distancia.toFixed(1)}km`);
+                    resolve(distancia);
                 }
-                
-                // Esconde spinner
-                spinner.style.display = 'none';
-              });
-            } else {
-              // Fallback sem a API do Google Maps
-              finalizarCalculo(prefix, valorBase, fatorCondicao, prazo, 10, textoServico, detalhesAdicionais);
-              spinner.style.display = 'none';
+                });
+            });
             }
-          }
-          
-          // Função para finalizar o cálculo com os dados obtidos
-          function finalizarCalculo(prefix, valorBase, fatorCondicao, prazo, distancia, textoServico, detalhes) {
-            // Calcula valor da distância (R$5 por km)
-            const valorDistancia = distancia * 5;
+
+        // Função para coletar dados do formulário
+        function coletarDadosFormulario(prefix) {
+        const servicoSelect = document.getElementById(`${prefix}-tipoServico`);
+        const precoBase = parseFloat(servicoSelect.selectedOptions[0].dataset.preco) || 0;
+        const textoServico = servicoSelect.selectedOptions[0].text;
+        const prazo = document.getElementById(`${prefix}-prazo`).value;
+        const condicaoSelect = document.getElementById(`${prefix}-condicao`);
+        const fatorCondicao = parseFloat(condicaoSelect.selectedOptions[0].dataset.fator) || 1;
+        const textoCondicao = condicaoSelect.selectedOptions[0].text;
+        const enderecoCliente = document.getElementById(`${prefix}-endereco`).value;
+        
+        // Variáveis específicas para cada tipo de orçamento
+        let valorBase = 0;
+        let detalhesAdicionais = {};
+        
+        if (prefix === 'man') {
+            // Manutenção - Estimar com base na área
+            const area = parseFloat(document.getElementById('man-area').value) || 0;
+            valorBase = precoBase * area;
             
-            // Cálculo do fator de urgência
-            const diasUteis = Math.max(1, Math.round((new Date(prazo) - new Date())/(1000*60*60*24)));
-            const fatorUrgencia = diasUteis < 5 ? 1.2 : 1;
-            
-            // Calcula valor total
-            const valorTotal = (valorBase + valorDistancia) * fatorUrgencia * fatorCondicao;
-            
-            // Armazena os dados para uso posterior (e-mail)
-            dadosOrcamento[prefix] = {
-              total: valorTotal,
-              distancia: distancia,
-              detalhes: {
-                servico: textoServico,
-                prazo: prazo,
-                ...detalhes
-              }
+            // Armazena detalhes para exibir no resultado
+            detalhesAdicionais = {
+            area: area,
+            textoArea: `${area} m²`
             };
             
-            // Exibe resultados na interface
-            document.getElementById(`${prefix}-valorTotal`).textContent = valorTotal.toFixed(2).replace('.', ',');
-            document.getElementById(`${prefix}-result-servico`).textContent = textoServico;
-            document.getElementById(`${prefix}-result-prazo`).textContent = formatarData(prazo);
-            document.getElementById(`${prefix}-result-distancia`).textContent = `${distancia.toFixed(1)} km`;
+        } else {
+            // Instalação - Estimar com base na quantidade
+            const quantidade = parseInt(document.getElementById('ins-quantidade').value, 10) || 0;
+            valorBase = precoBase * quantidade;
             
-            if (prefix === 'man') {
-              document.getElementById(`${prefix}-result-area`).textContent = detalhes.textoArea;
+            // Verifica se precisa ajustar por tipo de equipamento
+            if (servicoSelect.value === 'infra') {
+            const equipSelect = document.getElementById('ins-equipamento');
+            const fatorEquip = parseFloat(equipSelect.selectedOptions[0].dataset.fator) || 1;
+            const textoEquip = equipSelect.selectedOptions[0].text;
+            
+            valorBase *= fatorEquip;
+            
+            detalhesAdicionais = {
+                quantidade: quantidade,
+                textoQuantidade: `${quantidade} unidades`,
+                equipamento: textoEquip
+            };
             } else {
-              document.getElementById(`${prefix}-result-quantidade`).textContent = detalhes.textoQuantidade;
+            // Quando não tem equipamento específico
+            detalhesAdicionais = {
+                quantidade: quantidade,
+                textoQuantidade: `${quantidade} unidades`
+            };
             }
+        }
+        
+        return {
+            valorBase,
+            fatorCondicao,
+            prazo,
+            textoServico,
+            enderecoCliente,
+            detalhesAdicionais
+        };
+        }
+
+        // Função principal para Estimar orçamento
+        async function calculaOrcamento(prefix) {
+        // Oculta container de e-mail
+        document.getElementById(`${prefix}-email-container`).classList.remove('show');
+        
+        // Mostra spinner de carregamento
+        const spinner = document.getElementById(`${prefix}-spinner`);
+        spinner.style.display = 'inline-block';
+        
+        // Validação dos campos
+        if (!validarCampos(prefix)) {
+            spinner.style.display = 'none';
+            return;
+        }
+        
+        // Coleta dados do formulário
+        const {
+            valorBase,
+            fatorCondicao,
+            prazo,
+            textoServico,
+            enderecoCliente,
+            detalhesAdicionais
+        } = coletarDadosFormulario(prefix);
+        
+        // Endereço da empresa
+        const enderecoEmpresa = 'Avenida Antônio Augusto de Lima, 303 - CEP: 03807-040';
+        
+        try {
+            // Calcular distância - agora usando uma função assíncrona
+            const distancia = await calcularDistancia(enderecoCliente, enderecoEmpresa);
             
-            // Exibe o painel de resultado
-            document.getElementById(`${prefix}-result`).classList.add('show');
+            // Finaliza o cálculo com os dados obtidos
+            finalizarCalculo(prefix, valorBase, fatorCondicao, prazo, distancia, textoServico, detalhesAdicionais);
+        } catch (erro) {
+            // Em caso de falha, usa distância padrão
+            finalizarCalculo(prefix, valorBase, fatorCondicao, prazo, DISTANCIA_PADRAO, textoServico, detalhesAdicionais);
+        } finally {
+            // Esconde spinner
+            spinner.style.display = 'none';
+        }
+        }
+
+        // Função para finalizar o cálculo com os dados obtidos
+        function finalizarCalculo(prefix, valorBase, fatorCondicao, prazo, distancia, textoServico, detalhes) {
+        // Calcula valor da distância (R$5 por km)
+        const valorDistancia = distancia * VALOR_POR_KM;
+        
+        // Cálculo do fator de urgência
+        const diasUteis = Math.max(1, Math.round((new Date(prazo) - new Date())/(1000*60*60*24)));
+        const fatorUrgencia = diasUteis < LIMITE_DIAS_URGENCIA ? FATOR_URGENCIA : 1;
+        
+        // Calcula valor total
+        const valorTotal = (valorBase + valorDistancia) * fatorUrgencia * fatorCondicao;
+        
+        // Armazena os dados para uso posterior (e-mail)
+        dadosOrcamento[prefix] = {
+            total: valorTotal,
+            distancia: distancia,
+            detalhes: {
+            servico: textoServico,
+            prazo: prazo,
+            ...detalhes
+            }
+        };
+        
+        // Exibe resultados na interface
+        atualizarInterfaceResultado(prefix, valorTotal, distancia, detalhes);
+        }
+
+        // Função para atualizar interface com os resultados
+        function atualizarInterfaceResultado(prefix, valorTotal, distancia, detalhes) {
+        document.getElementById(`${prefix}-valorTotal`).textContent = valorTotal.toFixed(2).replace('.', ',');
+        document.getElementById(`${prefix}-result-servico`).textContent = dadosOrcamento[prefix].detalhes.servico;
+        document.getElementById(`${prefix}-result-prazo`).textContent = formatarData(dadosOrcamento[prefix].detalhes.prazo);
+        document.getElementById(`${prefix}-result-distancia`).textContent = `${distancia.toFixed(1)} km`;
+        
+        if (prefix === 'man') {
+            document.getElementById(`${prefix}-result-area`).textContent = detalhes.textoArea;
+        } else {
+            document.getElementById(`${prefix}-result-quantidade`).textContent = detalhes.textoQuantidade;
             
-            // Exibe container de e-mail
-            setTimeout(() => {
-              document.getElementById(`${prefix}-email-container`).classList.add('show');
-            }, 500);
-          }
-          
-          // Função para validar campos antes de estimar
-          function validarCampos(prefix) {
-            let valido = true;
-            
-            // Validação do serviço
-            const servicoSelect = document.getElementById(`${prefix}-tipoServico`);
-            const servicoFeedback = document.getElementById(`${prefix}-tipoServico-feedback`);
-            
-            if (!servicoSelect.value) {
-              servicoFeedback.textContent = 'Por favor, selecione um serviço';
-              servicoFeedback.classList.add('error');
-              servicoSelect.classList.add('error');
-              valido = false;
+            // Gerencia exibição do equipamento para instalação
+            if (detalhes.equipamento) {
+            document.getElementById('ins-result-equip-container').style.display = 'flex';
+            document.getElementById('ins-result-equipamento').textContent = detalhes.equipamento;
             } else {
-              servicoFeedback.textContent = '';
-              servicoSelect.classList.remove('error');
+            document.getElementById('ins-result-equip-container').style.display = 'none';
             }
-            
-            // Validação do endereço
-            const endereco = document.getElementById(`${prefix}-endereco`);
-            const enderecoFeedback = document.getElementById(`${prefix}-endereco-feedback`);
-            
-            if (!endereco.value.trim()) {
-              enderecoFeedback.textContent = 'Por favor, informe o endereço do serviço';
-              enderecoFeedback.classList.add('error');
-              endereco.classList.add('error');
-              valido = false;
-            } else {
-              enderecoFeedback.textContent = '';
-              endereco.classList.remove('error');
+        }
+        
+        // Exibe o painel de resultado
+        document.getElementById(`${prefix}-result`).classList.add('show');
+        
+        // Exibe container de e-mail
+        setTimeout(() => {
+            document.getElementById(`${prefix}-email-container`).classList.add('show');
+        }, 500);
+        }
+
+        // Função para enviar orçamento por e-mail
+        function enviarPorEmail(prefix) {
+        const destinatario = prompt('Digite seu e-mail para receber o orçamento:');
+        
+        if (!destinatario) return;
+        
+        // Validação de e-mail
+        if (!validarEmail(destinatario)) {
+            alert('Por favor, digite um endereço de e-mail válido.');
+            return;
+        }
+        
+        // Recupera dados do orçamento
+        const detalhes = dadosOrcamento[prefix].detalhes;
+        const valorTotal = dadosOrcamento[prefix].total.toFixed(2).replace('.', ',');
+        const distancia = dadosOrcamento[prefix].distancia.toFixed(1);
+        
+        // Monta corpo do e-mail
+        let corpoEmail = `ORÇAMENTO DE SERVIÇO - DL INOVAÇÃO\n\n`;
+        corpoEmail += `Serviço: ${detalhes.servico}\n`;
+        corpoEmail += `Total: R$ ${valorTotal}\n\n`;
+        
+        if (prefix === 'man') {
+            corpoEmail += `Área: ${detalhes.area} m²\n`;
+        } else {
+            if (detalhes.equipamento) {
+            corpoEmail += `Equipamento: ${detalhes.equipamento}\n`;
             }
+            corpoEmail += `Quantidade: ${detalhes.quantidade}\n`;
+        }
+        
+        corpoEmail += `Prazo de entrega: ${formatarData(detalhes.prazo)}\n`;
+        corpoEmail += `Distância estimada: ${distancia} km\n\n`;
+        corpoEmail += `Endereço informado: ${document.getElementById(`${prefix}-endereco`).value}\n\n`;
+        
+        // Texto adicional personalizado
+        corpoEmail += `Obrigado por solicitar um orçamento conosco!\n`;
+        corpoEmail += `Este é um valor estimado e pode sofrer alterações após visita técnica.\n\n`;
+        corpoEmail += `Estamos à disposição para qualquer esclarecimento adicional.\n\n`;
+        corpoEmail += `Atenciosamente,\n`;
+        corpoEmail += `Equipe DL Inovação\n`;
+        corpoEmail += `Contato: (11) 99443-7573\n`;
+        corpoEmail += `https://dlprojetos.eng.br/home`;
+        
+        // Cria link mailto
+        const assunto = encodeURIComponent('Orçamento de Serviço - DL Inovação');
+        const corpo = encodeURIComponent(corpoEmail);
+        window.location.href = `mailto:${destinatario}?subject=${assunto}&body=${corpo}`;
+        }
+
+        // Inicialização e configuração de eventos quando o DOM estiver carregado
+        document.addEventListener('DOMContentLoaded', () => {
+        // Inicializa datas com prazo padrão (3 dias úteis)
+        document.getElementById('man-prazo').value = addDiasUteis(new Date(), 3);
+        document.getElementById('ins-prazo').value = addDiasUteis(new Date(), 3);
+        
+        // Configuração das abas
+        configurarAbas();
+        
+        // Configurar campos condicionais
+        configurarCamposCondicionais();
+        
+        // Configurar botões
+        configurarBotoes();
+        });
+
+        // Função para configurar as abas
+        function configurarAbas() {
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        tabBtns.forEach(tab => {
+            tab.addEventListener('click', () => {
+            const tabId = tab.getAttribute('data-tab');
             
-            // Validação do prazo
-            const prazo = document.getElementById(`${prefix}-prazo`);
-            const prazoFeedback = document.getElementById(`${prefix}-prazo-feedback`);
+            // Remove classe ativa de todas as abas e adiciona na selecionada
+            tabBtns.forEach(btn => btn.classList.remove('active'));
+            tab.classList.add('active');
             
-            if (!prazo.value) {
-              prazoFeedback.textContent = 'Por favor, informe o prazo desejado';
-              prazoFeedback.classList.add('error');
-              prazo.classList.add('error');
-              valido = false;
-            } else {
-              prazoFeedback.textContent = '';
-              prazo.classList.remove('error');
-            }
+            // Esconde todos os painéis e mostra apenas o selecionado
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            });
+        });
+        }
+
+        // Função para configurar campos condicionais
+        function configurarCamposCondicionais() {
+        // Configura campos condicionais para tipo de serviço de manutenção
+        document.getElementById('man-tipoServico').addEventListener('change', e => {
+            const servicoSelecionado = e.target.value;
+            const precoServico = parseFloat(e.target.selectedOptions[0].dataset.preco) || 0;
             
-            // Validações específicas para cada tipo
-            if (prefix === 'man') {
-              // Validação da área para manutenção
-              const area = document.getElementById('man-area');
-              const areaFeedback = document.getElementById('man-area-feedback');
-              
-              if (servicoSelect.value && (!area.value || parseFloat(area.value) <= 0)) {
-                areaFeedback.textContent = 'Informe uma área válida';
-                areaFeedback.classList.add('error');
-                area.classList.add('error');
-                valido = false;
-              } else {
-                areaFeedback.textContent = '';
-                area.classList.remove('error');
-              }
-            } else {
-              // Validação da quantidade para instalação
-              const quantidade = document.getElementById('ins-quantidade');
-              const quantidadeFeedback = document.getElementById('ins-quantidade-feedback');
-              
-              if (!quantidade.value || parseInt(quantidade.value) <= 0) {
-                quantidadeFeedback.textContent = 'Informe uma quantidade válida';
-                quantidadeFeedback.classList.add('error');
-                quantidade.classList.add('error');
-                valido = false;
-              } else {
-                quantidadeFeedback.textContent = '';
-                quantidade.classList.remove('error');
-              }
-              
-              // Validação do equipamento se for instalação de infraestrutura
-              if (servicoSelect.value === 'infra') {
-                const equipamento = document.getElementById('ins-equipamento');
-                const equipamentoFeedback = document.getElementById('ins-equipamento-feedback');
-                
-                if (!equipamento.value) {
-                  equipamentoFeedback.textContent = 'Selecione um equipamento';
-                  equipamentoFeedback.classList.add('error');
-                  equipamento.classList.add('error');
-                  valido = false;
-                } else {
-                  equipamentoFeedback.textContent = '';
-                  equipamento.classList.remove('error');
-                }
-              }
-            }
+            // Mostra campo de área apenas se for um serviço válido
+            const campoArea = document.getElementById('man-campoArea');
+            campoArea.style.display = precoServico > 0 ? 'block' : 'none';
             
-            return valido;
-          }
-          
-          // Função para formatar a data no formato DD/MM/YYYY
-          function formatarData(dataString) {
-            const data = new Date(dataString);
-            const dia = String(data.getDate()).padStart(2, '0');
-            const mes = String(data.getMonth() + 1).padStart(2, '0');
-            const ano = data.getFullYear();
+            // Limpa feedback de erro caso exista
+            document.getElementById('man-area-feedback').innerHTML = '';
+            document.getElementById('man-area').classList.remove('error');
+        });
+        
+        // Configura campos condicionais para tipo de serviço de instalação
+        document.getElementById('ins-tipoServico').addEventListener('change', e => {
+            const servicoSelecionado = e.target.value;
             
-            return `${dia}/${mes}/${ano}`;
-          }
-          
-          // Função para enviar orçamento por e-mail
-          function enviarPorEmail(prefix) {
-            const destinatario = prompt('Digite seu e-mail para receber o orçamento:');
+            // Mostra campo de equipamento apenas se for instalação de infraestrutura
+            const campoEquip = document.getElementById('ins-campoEquip');
+            campoEquip.style.display = servicoSelecionado === 'infra' ? 'block' : 'none';
             
-            if (!destinatario) return;
-            
-            // Validação simples de e-mail
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(destinatario)) {
-              alert('Por favor, digite um endereço de e-mail válido.');
-              return;
-            }
-            
-            // Recupera dados do orçamento
-            const detalhes = dadosOrcamento[prefix].detalhes;
-            const valorTotal = dadosOrcamento[prefix].total.toFixed(2).replace('.', ',');
-            const distancia = dadosOrcamento[prefix].distancia.toFixed(1);
-            
-            // Monta corpo do e-mail
-            let corpoEmail = `ORÇAMENTO DE SERVIÇO - DL INOVAÇÃO\n\n`;
-            corpoEmail += `Serviço: ${detalhes.servico}\n`;
-            corpoEmail += `Total: R$ ${valorTotal}\n\n`;
-            
-            if (prefix === 'man') {
-              corpoEmail += `Área: ${detalhes.area} m²\n`;
-            } else {
-              if (detalhes.equipamento) {
-                corpoEmail += `Equipamento: ${detalhes.equipamento}\n`;
-              }
-              corpoEmail += `Quantidade: ${detalhes.quantidade}\n`;
-            }
-            
-            corpoEmail += `Prazo de entrega: ${formatarData(detalhes.prazo)}\n`;
-            corpoEmail += `Distância estimada: ${distancia} km\n\n`;
-            corpoEmail += `Endereço informado: ${document.getElementById(`${prefix}-endereco`).value}\n\n`;
-            
-            // Texto adicional personalizado
-            corpoEmail += `Obrigado por solicitar um orçamento conosco!\n`;
-            corpoEmail += `Este é um valor estimado e pode sofrer alterações após visita técnica.\n\n`;
-            corpoEmail += `Estamos à disposição para qualquer esclarecimento adicional.\n\n`;
-            corpoEmail += `Atenciosamente,\n`;
-            corpoEmail += `Equipe DL Inovação\n`;
-            corpoEmail += `Contato: (11) 99443-7573\n`;
-            corpoEmail += `https://dlprojetos.eng.br/home`;
-            
-            // Cria link mailto
-            const assunto = encodeURIComponent('Orçamento de Serviço - DL Inovação');
-            const corpo = encodeURIComponent(corpoEmail);
-            window.location.href = `mailto:${destinatario}?subject=${assunto}&body=${corpo}`;
-          }
-          </script>
+            // Limpa feedback de erro caso exista
+            document.getElementById('ins-equipamento-feedback').innerHTML = '';
+            document.getElementById('ins-equipamento').classList.remove('error');
+        });
+        }
+
+        // Função para configurar botões
+        function configurarBotoes() {
+        // Configura botões de orçamento
+        document.getElementById('btn-calcula-man').addEventListener('click', () => calculaOrcamento('man'));
+        document.getElementById('btn-calcula-ins').addEventListener('click', () => calculaOrcamento('ins'));
+        
+        // Configura botões de e-mail
+        document.getElementById('man-btnEmail').addEventListener('click', () => enviarPorEmail('man'));
+        document.getElementById('ins-btnEmail').addEventListener('click', () => enviarPorEmail('ins'));
+        }
+    </script> 
