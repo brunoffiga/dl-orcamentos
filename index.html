@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="format-detection" content="telephone=no">
   <title>Estimativa de Orçamento - DL Inovação</title>
   <style>
     :root {
@@ -219,6 +218,12 @@
 
     select.form-control option {
     color: var(--dark);
+    }
+
+    a[href^="tel:"] {
+  color: inherit !important;
+  text-decoration: none !important;
+  cursor: text;
     }
 
     @media (max-width: 767px) {
