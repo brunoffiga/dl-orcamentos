@@ -1,0 +1,477 @@
+<style>
+    :root {
+      --primary: #b25e04;
+      --secondary: #09152B;
+      --light: #f8f9fa;
+      --error: #b25e04;
+      --success: #28a745;
+    }
+    #orcamento-widget {
+      font-family: sans-serif;
+      max-width: 600px;
+      margin: auto;
+      background: var(--light);
+      border: 2px solid var(--secondary);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    #orcamento-widget h3 {
+      margin-top: 0;
+      color: var(--secondary);
+    }
+    /* Abas */
+    #abas-tipo {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .aba {
+      flex: 1;
+      text-align: center;
+      padding: 8px;
+      border-radius: 4px;
+      background: var(--secondary);
+      color: #fff;
+      cursor: pointer;
+      user-select: none;
+    }
+    .aba.ativa {
+      background: var(--primary);
+    }
+    /* Formulários */
+    .form-aba { display: none; }
+    .form-aba.active { display: block; }
+  
+    .form-aba label {
+      display: block;
+      margin: 8px 0 4px;
+      color: var(--secondary);
+    }
+    .form-aba input,
+    .form-aba select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid var(--secondary);
+      border-radius: 4px;
+      margin-bottom: 8px;
+      transition: border-color .2s;
+    }
+    .form-aba input.erro {
+      border-color: var(--error);
+    }
+    .form-aba button {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 8px;
+      transition: background-color 0.3s ease;
+    }
+    .form-aba button:hover {
+      background: #a04c01;
+    }
+    .form-aba .resultado {
+      margin-top: 16px;
+      font-size: 1.2em;
+      color: var(--secondary);
+    }
+    #contato-msg {
+      text-align: center;
+      margin: 32px 0;
+      color: var(--secondary);
+      font-size: 1.1em;
+    }
+    .email-btn-container {
+      text-align: center;
+      display: none;
+      margin-top: 16px;
+      transition: opacity 0.3s ease;
+    }
+    .email-btn-container button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto;
+    }
+    .email-btn-container svg {
+      margin-right: 8px;
+    }
+    .fade-in {
+      animation: fadeIn 0.5s ease forwards;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  </style>
+  
+  <!-- carregamento assíncrono da Google Maps JS API -->
+  <script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCJANnhvsvEqRaYHw5Z-KukD96SWqHkjqI&libraries=places&loading=async"
+  async
+  defer
+  ></script>
+  
+  <div id="orcamento-widget">
+  <h3>Estimativa em tempo real</h3>
+  <div id="abas-tipo">
+    <div class="aba ativa" data-tipo="manutencao">Manutenção</div>
+    <div class="aba"       data-tipo="instalacao">Instalação</div>
+    <div class="aba"       data-tipo="projeto">Projetos</div>
+  </div>
+  
+  <!-- Manutenção -->
+  <div id="manutencao" class="form-aba active">
+    <label for="man-tipoServico">Serviço</label>
+    <select id="man-tipoServico">
+      <option value="" data-preco="0"></option>
+      <option value="alvenaria"    data-preco="100">Alvenaria</option>
+      <option value="preventiva"    data-preco="200">Avaliação preventiva</option>
+      <option value="concretagem"   data-preco="100">Concretagem</option>
+      <option value="paisagismo"    data-preco="50">Paisagismo</option>
+      <option value="pintura"       data-preco="20">Pintura</option>
+      <option value="poda"          data-preco="50">Poda</option>
+      <option value="terraplanagem" data-preco="100">Terraplanagem</option>
+    </select>
+  
+    <div id="man-campoArea" style="display:none;">
+      <label for="man-area">Área estimada (m²)</label>
+      <input type="number" id="man-area" min="0" value="0">
+    </div>
+  
+    <label for="man-endereco">Endereço</label>
+    <input type="text" id="man-endereco" placeholder="Local do serviço">
+  
+    <label for="man-prazo">Prazo para entrega</label>
+    <input type="date" id="man-prazo">
+  
+    <label for="man-condicao">Condição da infraestrutura</label>
+    <select id="man-condicao">
+      <option value="boa"  data-fator="1">Boa</option>
+      <option value="media" data-fator="1.1">Média (ou não consigo avaliar)</option>
+      <option value="ruim"  data-fator="1.3">Ruim (preparação ou serviços em torno necessários)</option>
+    </select>
+  
+    <button type="button" onclick="calculaOrcamento('man')">Calcular orçamento</button>
+    <div class="resultado">Total: R$ <span id="man-valorTotal">-</span></div>
+    
+    <div id="man-email-btn-container" class="email-btn-container">
+      <button type="button" id="man-btnEmail">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2zm13 2.383-4.708 2.825L15 11.105zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741M1 11.105l4.708-2.897L1 5.383z"/>
+        </svg>
+        Receba por e-mail
+      </button>
+    </div>
+  </div>
+  
+  <!-- Instalação -->
+  <div id="instalacao" class="form-aba">
+    <label for="ins-tipoServico">Serviço</label>
+    <select id="ins-tipoServico">
+      <option value="" data-preco="0"></option>
+      <option value="eletrica" data-preco="300">Instalações elétricas</option>
+      <option value="hidraulica" data-preco="200">Instalações hidráulicas</option>
+      <option value="infra"      data-preco="100">Instalação de equipamento</option>
+    </select>
+  
+    <div id="ins-campoEquip" style="display:none;">
+      <label for="ins-equipamento">Equipamento</label>
+      <select id="ins-equipamento">
+        <option value="" data-fator="0"></option>
+        <option value="ventilador"    data-fator="1">Ventilador</option>
+        <option value="arcondicionado" data-fator="1.5">Ar-condicionado</option>
+        <option value="lampada"        data-fator="0.2">Lâmpada</option>
+      </select>
+    </div>
+  
+    <div id="ins-campoQuantidade">
+      <label for="ins-quantidade">Quantidade</label>
+      <input type="number" id="ins-quantidade" min="1" step="1" value="0">
+    </div>
+  
+    <label for="ins-endereco">Endereço</label>
+    <input type="text" id="ins-endereco" placeholder="Local do serviço">
+  
+    <label for="ins-prazo">Prazo para entrega</label>
+    <input type="date" id="ins-prazo">
+  
+    <label for="ins-condicao">Condição da infraestrutura</label>
+    <select id="ins-condicao">
+      <option value="boa"  data-fator="1">Boa</option>
+      <option value="media" data-fator="1.1">Média (ou não consigo avaliar)</option>
+      <option value="ruim"  data-fator="1.3">Ruim (preparação ou serviços em torno necessários)</option>
+    </select>
+  
+    <button type="button" onclick="calculaOrcamento('ins')">Calcular orçamento</button>
+    <div class="resultado">Total: R$ <span id="ins-valorTotal">-</span></div>
+    
+    <div id="ins-email-btn-container" class="email-btn-container">
+      <button type="button" id="ins-btnEmail">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2zm13 2.383-4.708 2.825L15 11.105zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741M1 11.105l4.708-2.897L1 5.383z"/>
+        </svg>
+        Receba por e-mail
+      </button>
+    </div>
+  </div>
+  
+  <!-- Projeto -->
+  <div id="projeto" class="form-aba">
+    <div id="contato-msg">Fale com a nossa equipe!</div>
+    <div style="text-align:center; margin-top:16px;">
+      <!-- WhatsApp -->
+      <button onclick="window.open('https://wa.me/11994437573','_blank')">
+        <svg xmlns="http://www.w3.org/2000/svg"
+             width="16" height="16" fill="currentColor"
+             class="bi bi-whatsapp"
+             style="vertical-align: text-bottom; margin-right:4px"
+             viewBox="0 0 16 16">
+          <path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/>
+        </svg>
+        WhatsApp
+      </button>
+  
+      <!-- E-mail -->
+      <button onclick="location.href='mailto:contato@dlinovacao.com'">
+        <svg xmlns="http://www.w3.org/2000/svg"
+             width="16" height="16" fill="currentColor"
+             class="bi bi-envelope"
+             style="vertical-align: text-bottom; margin-right:4px"
+             viewBox="0 0 16 16">
+          <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2zm13 2.383-4.708 2.825L15 11.105zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741M1 11.105l4.708-2.897L1 5.383z"/>
+        </svg>
+        E-mail
+      </button>
+    </div>
+  </div>
+  </div>
+  
+  <script>
+  // Variáveis globais para armazenar dados do orçamento atual
+  let dadosOrcamento = {
+    man: { total: 0, distancia: 0, detalhes: {} },
+    ins: { total: 0, distancia: 0, detalhes: {} }
+  };
+  
+  // utilitário para dias úteis
+  function addDiasUteis(start, dias) {
+    const date = new Date(start);
+    while (dias > 0) {
+      date.setDate(date.getDate() + 1);
+      const d = date.getDay();
+      if (d !== 0 && d !== 6) dias--;
+    }
+    return date.toISOString().split('T')[0];
+  }
+  
+  document.addEventListener('DOMContentLoaded', () => {
+    // prazos
+    document.getElementById('man-prazo').value = addDiasUteis(new Date(), 3);
+    document.getElementById('ins-prazo').value = addDiasUteis(new Date(), 3);
+  
+    // abas
+    document.querySelectorAll('.aba').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.aba').forEach(t => t.classList.remove('ativa'));
+        tab.classList.add('ativa');
+        document.querySelectorAll('.form-aba').forEach(f => f.classList.remove('active'));
+        document.getElementById(tab.dataset.tipo).classList.add('active');
+      });
+    });
+  
+    // mostrar campos condicionais
+    document.getElementById('man-tipoServico').addEventListener('change', e => {
+      const show = e.target.selectedOptions[0].dataset.preco > 0;
+      document.getElementById('man-campoArea').style.display = show ? 'block' : 'none';
+      document.getElementById('man-area').classList.remove('erro');
+    });
+    document.getElementById('ins-tipoServico').addEventListener('change', e => {
+      document.getElementById('ins-campoEquip').style.display =
+        e.target.value === 'infra' ? 'block' : 'none';
+      document.getElementById('ins-quantidade').classList.remove('erro');
+    });
+  
+    // Setup dos botões de email
+    document.getElementById('man-btnEmail').addEventListener('click', () => enviarPorEmail('man'));
+    document.getElementById('ins-btnEmail').addEventListener('click', () => enviarPorEmail('ins'));
+  });
+  
+  // função principal: calcula distância e, em seguida, o orçamento
+  function calculaOrcamento(prefix) {
+    // Oculta botão de email (caso esteja visível de um cálculo anterior)
+    const emailBtnContainer = document.getElementById(`${prefix}-email-btn-container`);
+    emailBtnContainer.style.display = 'none';
+  
+    // limpa erros
+    const campo = document.getElementById(prefix === 'man' ? 'man-area' : 'ins-quantidade');
+    campo.classList.remove('erro');
+  
+    // coleta de valores fixos
+    const sel = document.getElementById(`${prefix}-tipoServico`);
+    const preco = parseFloat(sel.selectedOptions[0].dataset.preco) || 0;
+    
+    // Verifica se já foi selecionado algum serviço
+    if (preco === 0) {
+      alert('Por favor, selecione um serviço para calcular o orçamento.');
+      return;
+    }
+    
+    const prazo = document.getElementById(`${prefix}-prazo`).value;
+    const cond = document.getElementById(`${prefix}-condicao`);
+    const fatorCond = parseFloat(cond.selectedOptions[0].dataset.fator) || 1;
+  
+    // base (área ou quantidade)
+    let base = 0;
+    if (prefix === 'man') {
+      const area = parseFloat(campo.value) || 0;
+      if (area <= 0) { campo.classList.add('erro'); return; }
+      base = preco * area;
+      
+      // Guarda detalhes para e-mail
+      dadosOrcamento.man.detalhes = {
+        servico: sel.selectedOptions[0].text,
+        area: area,
+        endereco: document.getElementById(`${prefix}-endereco`).value,
+        prazo: prazo,
+        condicao: cond.selectedOptions[0].text
+      };
+    } else {
+      const qtd = parseInt(campo.value, 10) || 0;
+      if (qtd <= 0) { campo.classList.add('erro'); return; }
+      base = preco * qtd;
+      
+      // Verificar equipamento para instalação de equipamento
+      let fatorEquip = 1;
+      if (sel.value === 'infra') {
+        const equipSel = document.getElementById('ins-equipamento');
+        if (equipSel.value === '') {
+          alert('Por favor, selecione um equipamento.');
+          return;
+        }
+        fatorEquip = parseFloat(equipSel.selectedOptions[0].dataset.fator) || 1;
+        
+        // Adiciona equipamento ao detalhe
+        dadosOrcamento.ins.detalhes = {
+          servico: sel.selectedOptions[0].text,
+          equipamento: equipSel.selectedOptions[0].text,
+          quantidade: qtd,
+          endereco: document.getElementById(`${prefix}-endereco`).value,
+          prazo: prazo,
+          condicao: cond.selectedOptions[0].text
+        };
+      } else {
+        // Serviços que não precisam de equipamento
+        dadosOrcamento.ins.detalhes = {
+          servico: sel.selectedOptions[0].text,
+          quantidade: qtd,
+          endereco: document.getElementById(`${prefix}-endereco`).value,
+          prazo: prazo,
+          condicao: cond.selectedOptions[0].text
+        };
+      }
+      
+      // Aplica fator de equipamento se for instalação de equipamento
+      if (sel.value === 'infra') {
+        base *= fatorEquip;
+      }
+    }
+  
+    // Verifica se o endereço foi preenchido
+    const enderecoCliente = document.getElementById(`${prefix}-endereco`).value;
+    if (!enderecoCliente.trim()) {
+      alert('Por favor, informe o endereço do serviço.');
+      return;
+    }
+  
+    // obtém endereço e chama a API de Distância
+    const enderecoEmpresa = 'Avenida Antônio Augusto de Lima, 303 - CEP: 03807-040 - Ermelino Matarazzo';
+    const service = new google.maps.DistanceMatrixService();
+  
+    service.getDistanceMatrix({
+      origins:    [enderecoCliente],
+      destinations: [enderecoEmpresa],
+      travelMode: 'DRIVING',
+      unitSystem: google.maps.UnitSystem.METRIC
+    }, (response, status) => {
+      if (status !== 'OK') {
+        alert('Erro ao calcular a distância: ' + status);
+        return;
+      }
+  
+      // Verifica se a API retornou uma rota válida
+      if (response.rows[0].elements[0].status !== 'OK') {
+        alert('Não foi possível calcular a distância para o endereço informado. Por favor, verifique e tente novamente.');
+        return;
+      }
+  
+      // distância em km
+      const distancia = response.rows[0].elements[0].distance.value / 1000;
+      // valor extra por distância
+      const valorDist = distancia * 5;
+      // urgência
+      const diasUrg = (new Date(prazo) - new Date())/(1000*60*60*24);
+      const fatorUrg = diasUrg < 5 ? 1.2 : 1;
+      // total final
+      const total = (base + valorDist) * fatorUrg * fatorCond;
+  
+      // Armazena dados para e-mail
+      dadosOrcamento[prefix].total = total;
+      dadosOrcamento[prefix].distancia = distancia;
+  
+      // exibe total
+      document.getElementById(`${prefix}-valorTotal`)
+              .innerText = total.toFixed(2).replace('.', ',');
+              
+      // Exibe o botão de e-mail com animação
+      emailBtnContainer.style.display = 'block';
+      emailBtnContainer.classList.add('fade-in');
+    });
+  }
+  
+  // Função para enviar orçamento por e-mail
+  function enviarPorEmail(prefix) {
+    const destinatario = prompt('Digite seu e-mail para receber o orçamento:');
+    if (!destinatario) return;
+    
+    // Validação simples de e-mail
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(destinatario)) {
+      alert('Por favor, digite um endereço de e-mail válido.');
+      return;
+    }
+  
+    // monta corpo do e-mail
+    const detalhes = dadosOrcamento[prefix].detalhes;
+    const valorTotal = dadosOrcamento[prefix].total.toFixed(2).replace('.', ',');
+    const distancia = dadosOrcamento[prefix].distancia.toFixed(1);
+    
+    let detalhe = `ORÇAMENTO DE SERVIÇO\n\n`;
+    detalhe += `Serviço: ${detalhes.servico}\n`;
+    detalhe += `Total: R$ ${valorTotal}\n\n`;
+  
+    if (prefix === 'man') {
+      detalhe += `Área: ${detalhes.area} m²\n`;
+    } else {
+      if (detalhes.equipamento) {
+        detalhe += `Equipamento: ${detalhes.equipamento}\n`;
+      }
+      detalhe += `Quantidade: ${detalhes.quantidade}\n`;
+    }
+    
+    detalhe += `Endereço: ${detalhes.endereco}\n`;
+    detalhe += `Prazo: ${detalhes.prazo}\n`;
+    detalhe += `Condição: ${detalhes.condicao}\n`;
+    detalhe += `Distância: ${distancia} km\n`;
+  
+    // texto extra personalizado
+    const textoExtra = `\n\nObrigado por solicitar um orçamento conosco!\nEstaremos à disposição para esclarecer quaisquer dúvidas.\n\nAtenciosamente,\nEquipe DL Inovação\nTel: (11) 99443-7573\nE-mail: contato@dlinovacao.com`;
+  
+    // cria mailto
+    const subject = encodeURIComponent('Seu Orçamento de Serviços - DL Inovação');
+    const body = encodeURIComponent(detalhe + textoExtra);
+    window.location.href = `mailto:${destinatario}?subject=${subject}&body=${body}`;
+  }
+  </script>
