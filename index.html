@@ -165,8 +165,17 @@
       font-size: 1rem;
       border: 1px solid var(--gray-300);
       border-radius: var(--radius);
+      color: var(--dark) !important;
       background-color: white;
       transition: var(--transition);
+    }
+
+    select.form-control option[value=""] {
+        color: var(--gray-500);
+    }
+
+    select.form-control::-webkit-input-placeholder {
+        color: var(--gray-500);
     }
     
     .form-control:focus {
@@ -192,6 +201,38 @@
     .form-feedback.error {
       color: var(--error);
       display: block;
+    }
+
+    input[type="date"] {
+        color: var(--dark) !important;
+    }
+
+    input[type="date"]::-webkit-datetime-edit,
+    input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+    input[type="date"]::-webkit-datetime-edit-text,
+    input[type="date"]::-webkit-datetime-edit-month-field,
+    input[type="date"]::-webkit-datetime-edit-day-field,
+    input[type="date"]::-webkit-datetime-edit-year-field {
+    color: var(--dark);
+    }
+
+    select.form-control option {
+    color: var(--dark);
+    }
+
+    @media (max-width: 767px) {
+    select.form-control,
+    input[type="date"] {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        color: var(--dark) !important;
+    }
+    }
+
+    /* Quando o campo está vazio (alguns navegadores) */
+    input[type="date"]::-webkit-input-placeholder {
+    color: var(--gray-500);
     }
     
     /* Buttons */
@@ -318,7 +359,8 @@
     
     .contact-heading {
       color: var(--secondary);
-      margin-bottom: 1.5rem;
+      margin-bottom: 0.85rem;
+      margin-top: -1.2rem;
       font-size: 1.25rem;
       font-weight: 600;
     }
@@ -450,8 +492,8 @@
 <div id="orcamento-widget">
   <!-- Header -->
   <div class="widget-header">
-    <h2>Orçamento em tempo real</h2>
-    <p>Calcule uma estimativa para seu projeto em poucos passos</p>
+    <h2>Orçamento rápido</h2>
+    <p>Caso não ache o que deseja: acesse nosso FDC, portfolio e fale com nosso time</p>
   </div>
   
   <!-- Tab Navigation -->
@@ -473,12 +515,13 @@
     <div id="manutencao" class="tab-pane active">
       <form id="form-manutencao">
         <div class="form-group">
-          <label for="man-tipoServico">Tipo de Serviço</label>
+          <label for="man-tipoServico">Tipo de serviço</label>
           <select id="man-tipoServico" class="form-control" required>
             <option value="" data-preco="0">Selecione o serviço</option>
             <option value="alvenaria" data-preco="100">Alvenaria</option>
             <option value="preventiva" data-preco="200">Avaliação preventiva</option>
             <option value="concretagem" data-preco="100">Concretagem</option>
+            <option value="detetizacao" data-preco="100">Detetização</option>
             <option value="paisagismo" data-preco="50">Paisagismo</option>
             <option value="pintura" data-preco="20">Pintura</option>
             <option value="poda" data-preco="50">Poda</option>
@@ -516,7 +559,7 @@
         
         <div class="action-buttons">
           <button type="button" id="btn-calcula-man" class="btn">
-            <span>Calcular orçamento</span>
+            <span>Estimar orçamento</span>
             <div class="loading-spinner" id="man-spinner"></div>
           </button>
           <button type="reset" class="btn btn-ghost">Limpar campos</button>
@@ -525,7 +568,7 @@
       
       <!-- Resultado -->
       <div class="result-panel" id="man-result">
-        <div class="result-title">Orçamento Estimado</div>
+        <div class="result-title">Orçamento estimado</div>
         <div class="result-value">R$ <span id="man-valorTotal">-</span></div>
         
         <div class="result-details">
@@ -546,6 +589,15 @@
             <span id="man-result-distancia">-</span>
           </div>
         </div>
+
+        <div class="result-observacoes" style="margin:10px 0;">
+            <label for="man-observacoes" style="color: var(--secondary); font-weight: 600; display:block; margin-bottom:4px; font-size: 0.9rem;">
+              Observações
+            </label>
+            <textarea id="man-observacoes" rows="1"
+              style="width:100%; padding:8px; border:1px dashed var(--gray-300); border-radius:4px; resize:vertical;"
+              placeholder="Conte-nos mais sobre a sua demanda"></textarea>
+          </div>
         
         <div class="email-container" id="man-email-container">
           <button type="button" id="man-btnEmail" class="btn">
@@ -562,18 +614,19 @@
     <div id="instalacao" class="tab-pane">
       <form id="form-instalacao">
         <div class="form-group">
-          <label for="ins-tipoServico">Tipo de Serviço</label>
+          <label for="ins-tipoServico">Tipo de serviço</label>
           <select id="ins-tipoServico" class="form-control" required>
             <option value="" data-preco="0">Selecione o serviço</option>
             <option value="eletrica" data-preco="300">Instalações elétricas</option>
             <option value="hidraulica" data-preco="200">Instalações hidráulicas</option>
             <option value="infra" data-preco="100">Instalação de equipamento</option>
+            <option value="moveis" data-preco="300">Montagem de móveis</option>
           </select>
           <div class="form-feedback" id="ins-tipoServico-feedback"></div>
         </div>
         
         <div class="form-group" id="ins-campoEquip" style="display:none;">
-          <label for="ins-equipamento">Tipo de Equipamento</label>
+          <label for="ins-equipamento">Tipo de equipamento</label>
           <select id="ins-equipamento" class="form-control">
             <option value="" data-fator="0">Selecione o equipamento</option>
             <option value="ventilador" data-fator="1">Ventilador</option>
@@ -612,7 +665,7 @@
         
         <div class="action-buttons">
           <button type="button" id="btn-calcula-ins" class="btn">
-            <span>Calcular orçamento</span>
+            <span>Estimar orçamento</span>
             <div class="loading-spinner" id="ins-spinner"></div>
           </button>
           <button type="reset" class="btn btn-ghost">Limpar campos</button>
@@ -621,7 +674,7 @@
       
       <!-- Resultado -->
       <div class="result-panel" id="ins-result">
-        <div class="result-title">Orçamento Estimado</div>
+        <div class="result-title">Orçamento estimado</div>
         <div class="result-value">R$ <span id="ins-valorTotal">-</span></div>
 
         <div class="result-details">
@@ -646,6 +699,15 @@
             <span id="ins-result-distancia">-</span>
           </div>
         </div>
+
+        <div class="result-observacoes" style="margin:10px 0;">
+            <label for="ins-observacoes" style="color: var(--secondary); font-weight: 600; display:block; margin-bottom:4px; font-size: 0.9rem;">
+              Observações
+            </label>
+            <textarea id="ins-observacoes" rows="1"
+              style="width:100%; padding:8px; border:1px dashed var(--gray-300); border-radius:4px; resize:vertical;"
+              placeholder="Conte-nos mais sobre a sua demanda"></textarea>
+          </div>
         
         <div class="email-container" id="ins-email-container">
           <button type="button" id="ins-btnEmail" class="btn">
@@ -662,8 +724,9 @@
     <div id="projeto" class="tab-pane">
       <div class="contact-panel">
         <h3 class="contact-heading">Precisa de um projeto personalizado?</h3>
-        <p>Nossos especialistas estão prontos para elaborar soluções sob medida.</p>
-        
+        <p style="margin-bottom: 20px;">
+            Temos especialistas prontos para elaborar soluções sob medida!
+        </p>                  
         <div class="contact-options">
           <div class="contact-card">
             <div class="contact-icon">
@@ -791,7 +854,7 @@
             document.getElementById('ins-btnEmail').addEventListener('click', () => enviarPorEmail('ins'));
           });
           
-          // Função principal para calcular orçamento
+          // Função principal para Estimar orçamento
           function calculaOrcamento(prefix) {
             // Oculta container de e-mail
             document.getElementById(`${prefix}-email-container`).classList.remove('show');
@@ -821,7 +884,7 @@
             let detalhesAdicionais = {};
             
             if (prefix === 'man') {
-              // Manutenção - calcular com base na área
+              // Manutenção - Estimar com base na área
               const area = parseFloat(document.getElementById('man-area').value) || 0;
               valorBase = precoBase * area;
               
@@ -832,7 +895,7 @@
               };
               
             } else {
-              // Instalação - calcular com base na quantidade
+              // Instalação - Estimar com base na quantidade
               const quantidade = parseInt(document.getElementById('ins-quantidade').value, 10) || 0;
               valorBase = precoBase * quantidade;
               
@@ -939,7 +1002,7 @@
             }, 500);
           }
           
-          // Função para validar campos antes de calcular
+          // Função para validar campos antes de estimar
           function validarCampos(prefix) {
             let valido = true;
             
@@ -1087,8 +1150,8 @@
             corpoEmail += `Estamos à disposição para qualquer esclarecimento adicional.\n\n`;
             corpoEmail += `Atenciosamente,\n`;
             corpoEmail += `Equipe DL Inovação\n`;
-            corpoEmail += `Tel: (11) 99443-7573\n`;
-            corpoEmail += `E-mail: contato@dlinovacao.com`;
+            corpoEmail += `Contato: (11) 99443-7573\n`;
+            corpoEmail += `https://dlprojetos.eng.br/home`;
             
             // Cria link mailto
             const assunto = encodeURIComponent('Orçamento de Serviço - DL Inovação');
