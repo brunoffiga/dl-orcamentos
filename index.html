@@ -205,6 +205,7 @@
 
     input[type="date"] {
         color: var(--dark) !important;
+        text-align: left !important;
     }
 
     input[type="date"]::-webkit-datetime-edit,
@@ -214,6 +215,7 @@
     input[type="date"]::-webkit-datetime-edit-day-field,
     input[type="date"]::-webkit-datetime-edit-year-field {
     color: var(--dark);
+    text-align: left !important;
     }
 
     select.form-control option {
@@ -761,7 +763,9 @@
               </svg>
             </div>
             <h4 class="contact-method">Telefone</h4>
-            <p class="contact-detail">(11) 99443-7573</p>
+            <p class="contact-detail" style="text-decoration: none; color: inherit;">
+                (11) 99443-7573
+            </p>              
             <button onclick="location.href='tel:+5511994437573'" class="btn contact-btn">
               Ligar agora
             </button>
