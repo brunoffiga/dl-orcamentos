@@ -796,8 +796,10 @@ let dadosOrcamento = {
 
 // Constantes da aplicação
 const VALOR_POR_KM = 5; // R$
-const FATOR_URGENCIA = 1.2; // Multiplicador para prazos curtos
-const LIMITE_DIAS_URGENCIA = 5; // Dias úteis
+// Fatores de urgência baseados em dias
+const FATOR_URGENCIA_1_2_DIAS = 1.25;   // Entre 1 e 2 dias
+const FATOR_URGENCIA_3_4_DIAS = 1.14;   // Entre 3 e 4 dias
+const FATOR_URGENCIA_5_MAIS_DIAS = 1.0; // 5 dias ou mais
 
 // Função para ajustar a data com dias úteis
 function addDiasUteis(start, dias) {
@@ -1072,7 +1074,18 @@ function finalizarCalculo(prefix, valorBase, fatorCondicao, prazo, distancia, te
   
   // Cálculo do fator de urgência
   const diasUteis = Math.max(1, Math.round((new Date(prazo) - new Date())/(1000*60*60*24)));
-  const fatorUrgencia = diasUteis < LIMITE_DIAS_URGENCIA ? FATOR_URGENCIA : 1;
+  let fatorUrgencia;
+  
+  if (diasUteis <= 1) {
+    // Mesmo dia ou dia seguinte
+    fatorUrgencia = FATOR_URGENCIA_1_2_DIAS;
+  } else if (diasUteis <= 5) {
+    // Entre 2 e 5 dias
+    fatorUrgencia = FATOR_URGENCIA_3_4_DIAS;
+  } else {
+    // 6 dias ou mais
+    fatorUrgencia = FATOR_URGENCIA_5_MAIS_DIAS;
+  }
   
   // Calcula valor total
   const valorTotal = (valorBase + valorDistancia) * fatorUrgencia * fatorCondicao;
